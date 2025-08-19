@@ -203,15 +203,19 @@ if uploaded_file is not None:
 
         # optional: show raw predicted probabilities if available
         if hasattr(clf, "predict_proba") and confidence is not None:
+            # get fresh probs for display
             probs = clf.predict_proba(extractor.predict(preprocess_pil_image(pil_img))[:, selected_idx])[0]
-            # align classes to text
+
+            # build human-readable class names
             class_names = []
             for c in clf.classes_:
                 if isinstance(c, (int, np.integer)) and int(c) in label_map:
                     class_names.append(label_map[int(c)])
                 else:
                     class_names.append(str(c).replace("_", " ").title())
-            prob_table = {class_names[i]: f"{probs[i]*100:.1f}%" for i in range(len(prob_table:=class_names))}
+
+            # map names to probabilities (safe: zip will ignore extra if shapes mismatch)
+            prob_table = {name: f"{p*100:.1f}%" for name, p in zip(class_names, probs)}
             st.table({"Class": list(prob_table.keys()), "Probability": list(prob_table.values())})
 
 else:
@@ -229,4 +233,3 @@ else:
 # Footer
 st.markdown("---")
 st.markdown("Built with ❤️ — drop an image and get a prediction. If you see odd predictions, check your dataset labels and model training.")
-
