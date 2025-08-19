@@ -55,13 +55,31 @@ def load_artifacts(model_path=MODEL_PATH):
     return scaler, selected_idx, clf, feature_extractor
 
 def preprocess_pil_image(pil_img: Image.Image):
-    """Prepare PIL image for MobileNetV2: RGB, resize, array, preprocess_input"""
+    """Prepare PIL image for MobileNetV2: RGB, resize, array, preprocess_input.
+
+    Works with old and new Pillow versions (handles removal of Image.ANTIALIAS).
+    """
+    # Ensure RGB
     img = pil_img.convert("RGB")
-    img = ImageOps.fit(img, IMG_SIZE, Image.ANTIALIAS)
+
+    # Choose a resampling filter that's compatible across Pillow versions:
+    # - Pillow >= 9 / 10: Image.Resampling.LANCZOS
+    # - older Pillow: Image.LANCZOS or Image.ANTIALIAS
+    try:
+        resample = Image.Resampling.LANCZOS  # Pillow >= 9.1.0 (and >= 10 uses Resampling enum)
+    except Exception:
+        # fallback for older Pillow where Resampling doesn't exist
+        # prefer LANCZOS, otherwise fall back to ANTIALIAS if present
+        resample = getattr(Image, "LANCZOS", getattr(Image, "ANTIALIAS", 1))
+
+    # ImageOps.fit takes the resampling method as the 3rd positional arg in many Pillow versions
+    img = ImageOps.fit(img, IMG_SIZE, resample)
+
     arr = img_to_array(img)  # height,width,ch
     arr = preprocess_input(arr)  # MobileNetV2 preprocessing
     arr = np.expand_dims(arr, axis=0)  # batch dim
     return arr
+
 
 def predict_waste(pil_img: Image.Image, scaler, selected_idx, clf, extractor):
     """Full pipeline: extract features, scale, pick indices, predict"""
